@@ -80,6 +80,62 @@ END;
 The program should display the employee details or an error message.
 
 ---
+**QUERY:**
+```sql
+SET SERVEROUTPUT ON;
+
+CREATE TABLE employees (
+    emp_id NUMBER PRIMARY KEY,
+    emp_name VARCHAR2(50),
+    designation VARCHAR2(50)
+);
+
+INSERT INTO employees VALUES (1, 'Ravi', 'Manager');
+INSERT INTO employees VALUES (2, 'Priya', 'Developer');
+INSERT INTO employees VALUES (3, 'Arun', 'Tester');
+
+COMMIT;
+
+DECLARE
+    CURSOR emp_cursor IS
+        SELECT emp_name, designation
+        FROM employees;
+
+    v_emp_name employees.emp_name%TYPE;
+    v_designation employees.designation%TYPE;
+BEGIN
+    OPEN emp_cursor;
+
+    LOOP
+        FETCH emp_cursor INTO v_emp_name, v_designation;
+
+        EXIT WHEN emp_cursor%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE(
+            'Employee Name: ' || v_emp_name ||
+            ', Designation: ' || v_designation
+        );
+    END LOOP;
+
+    CLOSE emp_cursor;
+
+    IF emp_cursor%ROWCOUNT = 0 THEN
+        RAISE NO_DATA_FOUND;
+    END IF;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Error: No employee records found.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+```
+
+*OUTPUT:**
+
+<img width="731" height="228" alt="image" src="https://github.com/user-attachments/assets/e3447bdd-70ba-4d21-8bf0-b6cfe3134701" />
+
 
 ### **Question 2: Parameterized Cursor with Exception Handling**
 
@@ -99,6 +155,66 @@ The program should display the employee details or an error message.
 The program should display the employee details within the specified salary range or an error message if no data is found.
 
 ---
+**QUERY:**
+```sql
+SET SERVEROUTPUT ON;
+
+ALTER TABLE employees ADD salary NUMBER;
+
+UPDATE employees SET salary = 50000 WHERE emp_id = 1;
+UPDATE employees SET salary = 40000 WHERE emp_id = 2;
+UPDATE employees SET salary = 30000 WHERE emp_id = 3;
+
+COMMIT;
+
+DECLARE
+    CURSOR emp_cursor(min_salary NUMBER, max_salary NUMBER) IS
+        SELECT emp_name, designation, salary
+        FROM employees
+        WHERE salary BETWEEN min_salary AND max_salary;
+
+    v_emp_name employees.emp_name%TYPE;
+    v_designation employees.designation%TYPE;
+    v_salary employees.salary%TYPE;
+    v_count NUMBER := 0;
+
+BEGIN
+    OPEN emp_cursor(30000, 45000);
+
+    LOOP
+        FETCH emp_cursor INTO v_emp_name, v_designation, v_salary;
+
+        EXIT WHEN emp_cursor%NOTFOUND;
+
+        v_count := v_count + 1;
+
+        DBMS_OUTPUT.PUT_LINE(
+            'Employee Name: ' || v_emp_name ||
+            ', Designation: ' || v_designation ||
+            ', Salary: ' || v_salary
+        );
+    END LOOP;
+
+    CLOSE emp_cursor;
+
+    IF v_count = 0 THEN
+        RAISE NO_DATA_FOUND;
+    END IF;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: No employees found in the given salary range.'
+        );
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+```
+**OUTPUT:**
+
+<img width="655" height="239" alt="image" src="https://github.com/user-attachments/assets/1da9dc27-41df-45a3-946e-6e39b521e735" />
+
 
 ### **Question 3: Cursor FOR Loop with Exception Handling**
 
@@ -118,6 +234,58 @@ The program should display the employee details within the specified salary rang
 The program should display employee names with their department numbers or the appropriate error message if no data is found.
 
 ---
+**QUERY:**
+```sql
+SET SERVEROUTPUT ON;
+
+ALTER TABLE employees ADD dept_no NUMBER;
+
+UPDATE employees SET dept_no = 10 WHERE emp_id = 1;
+UPDATE employees SET dept_no = 20 WHERE emp_id = 2;
+UPDATE employees SET dept_no = 30 WHERE emp_id = 3;
+
+COMMIT;
+
+DECLARE
+    v_count NUMBER := 0;
+
+    CURSOR emp_cursor IS
+        SELECT emp_name, dept_no
+        FROM employees;
+
+BEGIN
+    FOR emp IN emp_cursor LOOP
+
+        v_count := v_count + 1;
+
+        DBMS_OUTPUT.PUT_LINE(
+            'Employee Name: ' || emp.emp_name ||
+            ', Department Number: ' || emp.dept_no
+        );
+
+    END LOOP;
+
+    IF v_count = 0 THEN
+        RAISE NO_DATA_FOUND;
+    END IF;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: No employees found in the database.'
+        );
+
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: ' || SQLERRM
+        );
+END;
+/
+```
+
+**OUTPUT:**
+
+<img width="531" height="224" alt="image" src="https://github.com/user-attachments/assets/b8120477-b757-4e9d-aa57-f507fa8ea3b8" />
 
 ### **Question 4: Cursor with `%ROWTYPE` and Exception Handling**
 
@@ -138,6 +306,65 @@ The program should display employee records or the appropriate error message if 
 
 ---
 
+**QUERY:**
+```SQL
+SET SERVEROUTPUT ON;
+
+DECLARE
+    CURSOR emp_cursor IS
+        SELECT emp_id, emp_name, salary
+        FROM employees
+        WHERE dept_no = 10
+        FOR UPDATE OF salary;
+
+    v_count NUMBER := 0;
+
+BEGIN
+    FOR emp IN emp_cursor LOOP
+
+        UPDATE employees
+        SET salary = salary + 5000
+        WHERE CURRENT OF emp_cursor;
+
+        v_count := v_count + 1;
+
+        DBMS_OUTPUT.PUT_LINE(
+            'Salary updated for ' || emp.emp_name ||
+            ': New Salary = ' || (emp.salary + 5000)
+        );
+
+    END LOOP;
+
+    IF v_count = 0 THEN
+        RAISE NO_DATA_FOUND;
+    END IF;
+
+    COMMIT;
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Employee salaries updated successfully.'
+    );
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: No employees found in the specified department.'
+        );
+
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: ' || SQLERRM
+        );
+END;
+/
+```
+
+**OUTPUT:**
+
+<img width="554" height="209" alt="image" src="https://github.com/user-attachments/assets/9d0d1ac2-2c94-4a79-94bd-36decf701bc7" />
+
+
 ### **Question 5: Cursor with FOR UPDATE Clause and Exception Handling**
 
 **Write a PL/SQL program using a cursor with the `FOR UPDATE` clause to update the salary of employees in a specific department. Implement exception handling for the following cases:**
@@ -156,6 +383,64 @@ The program should display employee records or the appropriate error message if 
 The program should update employee salaries and display a message, or it should display an error message if no data is found.
 
 ---
+**QUERY:**
+```SQL
+SET SERVEROUTPUT ON;
+
+DECLARE
+    CURSOR emp_cursor IS
+        SELECT emp_id, emp_name, salary
+        FROM employees
+        WHERE dept_no = 10
+        FOR UPDATE OF salary;
+
+    v_count NUMBER := 0;
+
+BEGIN
+    FOR emp IN emp_cursor LOOP
+
+        UPDATE employees
+        SET salary = salary + 5000
+        WHERE CURRENT OF emp_cursor;
+
+        v_count := v_count + 1;
+
+        DBMS_OUTPUT.PUT_LINE(
+            'Salary updated for ' || emp.emp_name ||
+            ': New Salary = ' || (emp.salary + 5000)
+        );
+
+    END LOOP;
+
+    IF v_count = 0 THEN
+        RAISE NO_DATA_FOUND;
+    END IF;
+
+    COMMIT;
+
+    DBMS_OUTPUT.PUT_LINE(
+        'Employee salaries updated successfully.'
+    );
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: No employees found in the specified department.'
+        );
+
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE(
+            'Error: ' || SQLERRM
+        );
+END;
+/
+```
+**OUTPUT:**
+
+<img width="596" height="253" alt="image" src="https://github.com/user-attachments/assets/567990db-c483-49e0-849b-283aa2204055" />
+
+
 
 ## RESULT
 Thus, the program successfully executed and displayed employee details using a cursor. 
